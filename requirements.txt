@@ -1,0 +1,8 @@
+python-dotenv
+uvicorn
+fastapi
+asyncio
+openai
+soundfile
+websockets
+# pip install 'uvicorn[standard]' fastapi openai edge-tts python-dotenv

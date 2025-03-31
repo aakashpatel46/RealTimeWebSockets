@@ -1,1 +1,5 @@
-# git ignore file
+# Ignore Python virtual environment
+.venv/
+
+.env 
+*.log

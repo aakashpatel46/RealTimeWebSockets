@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Assistant</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            margin: 15px;
+            cursor: pointer;
+            border: none;
+            border-radius: 25px;
+            transition: all 0.3s;
+        }
+        #start {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #stop {
+            background-color: #f44336;
+            color: white;
+        }
+        #status {
+            margin: 20px;
+            display: none;
+        }
+        .pulse {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4CAF50;
+            box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+            }
+            70% {
+                transform: scale(1.2);
+                box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Voice Assistant</h1>
+    <button id="start">Start Conversation</button>
+    <button id="stop" disabled>Stop</button>
+    <div id="status">
+        <span class="pulse"></span> AI is listening...
+    </div>
+    <audio id="audioPlayback" controls></audio>
+
+    <script>
+        let websocket;
+        let mediaRecorder;
+        let isRecording = false;
+
+        document.getElementById("start").addEventListener("click", async () => {
+            try {
+                // Initialize WebSocket connection
+                websocket = new WebSocket("ws://localhost:8001/ws/audio");
+                
+                websocket.onopen = () => {
+                    document.getElementById("status").style.display = "block";
+                };
+                
+                websocket.onclose = () => {
+                    document.getElementById("status").style.display = "none";
+                };
+
+                // Get microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                
+                // Handle audio data
+                mediaRecorder.ondataavailable = async (event) => {
+                    if (event.data.size > 0 && websocket.readyState === WebSocket.OPEN) {
+                        websocket.send(event.data);
+                    }
+                };
+
+                // Handle responses from server
+                websocket.onmessage = (event) => {
+                    const audioBlob = new Blob([event.data], { type: "audio/wav" });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audioElement = document.getElementById("audioPlayback");
+                    audioElement.src = audioUrl;
+                    audioElement.play().catch(e => console.error("Playback failed:", e));
+                };
+
+                // Start continuous recording
+                mediaRecorder.start(500); // Send chunks every 500ms
+                isRecording = true;
+                
+                // Update UI
+                document.getElementById("start").disabled = true;
+                document.getElementById("stop").disabled = false;
+                
+                console.log("Recording started...");
+            } catch (error) {
+                console.error("Error starting recording:", error);
+                alert("Error starting recording. Please check console for details.");
+            }
+        });
+
+        document.getElementById("stop").addEventListener("click", () => {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+            }
+            if (websocket) {
+                websocket.close();
+            }
+            
+            // Update UI
+            document.getElementById("start").disabled = false;
+            document.getElementById("stop").disabled = true;
+            document.getElementById("status").style.display = "none";
+            
+            console.log("Recording stopped");
+        });
+    </script>
+</body>
+</html>
